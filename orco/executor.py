@@ -1,11 +1,10 @@
-from typing import Union, Iterable
-
-from .collection import Ref, Collection, Entry
-from .task import Task
-from datetime import datetime
 import multiprocessing
 import threading
 import time
+from datetime import datetime
+
+from .collection import Entry
+from .task import Task
 
 
 class Executor:
@@ -39,21 +38,37 @@ def heartbeat(runtime, id, event, heartbeat_interval):
         runtime.update_heartbeat(id)
         time.sleep(heartbeat_interval)
 
+
 def gather_announcements(tasks):
     result = set()
+
+
+def compute_task(args):
+    build_fn, config, has_input, input_entries = args
+
+    if has_input:
+        return build_fn(config, input_entries)
+    else:
+        return build_fn(config)
 
 
 class LocalExecutor(Executor):
 
     _debug_do_not_start_heartbeat = False
 
-    def __init__(self, heartbeat_interval=5):
-        super().__init__("local", "0.0", "{} cpus".format(multiprocessing.cpu_count()), heartbeat_interval)
+    def __init__(self, heartbeat_interval=5, n_processes=None):
+        super().__init__("local", "0.0", "{} cpus".format(multiprocessing.cpu_count()),
+                         heartbeat_interval)
         self.heartbeat_thread = None
         self.heartbeat_stop_event = None
+        self.cache = {}
+
+        self.pool = None
+        if n_processes is not None and n_processes > 1:
+            self.pool = multiprocessing.Pool(n_processes)
 
     def get_stats(self):
-        return {}
+        return self.stats
 
     def stop(self):
         if self.heartbeat_stop_event:
@@ -62,50 +77,67 @@ class LocalExecutor(Executor):
         self.runtime = None
 
     def start(self):
+        assert self.runtime
+        assert self.id is not None
+
         if not self._debug_do_not_start_heartbeat:
             self.heartbeat_stop_event = threading.Event()
             self.heartbeat_thread = threading.Thread(target=heartbeat,
-                                                    args=(self.runtime, self.id,
-                                                        self.heartbeat_stop_event, self.heartbeat_interval))
+                                                     args=(self.runtime, self.id,
+                                                           self.heartbeat_stop_event,
+                                                           self.heartbeat_interval))
             self.heartbeat_thread.daemon = True
             self.heartbeat_thread.start()
 
-    def run_task(self, task, input_entries):
+    def save_result(self, task: Task, result):
         ref = task.ref
-        if task.is_computed:
-            entry = ref.collection.get_entry(ref.config)
-            assert entry is not None
-            return entry
-
         collection = ref.collection
-        if collection.dep_fn is None:
-            value = collection.build_fn(ref.config)
-        else:
-            value = collection.build_fn(ref.config, input_entries)
-        entry = Entry(collection, ref.config, value, datetime.now())
+        entry = Entry(collection, ref.config, result, datetime.now())
         collection.runtime.db.set_entry_value(self.id, entry)
         self.stats["n_completed"] += 1
         collection.runtime.db.update_stats(self.id, self.stats)
         return entry
 
-    def run(self, all_tasks, required_tasks: [Task]):
+    def run_tasks(self, tasks):
+        computed = {}
+        missing = {}
 
-        def run_helper(task):
-            entry = cache.get(task)
-            if entry is not None:
-                return entry
-            if task.inputs:
-                inputs = [run_helper(task) for task in task.inputs]
-            else:
+        for task in tasks:
+            result = self.cache.get(task)
+            if result is None:
                 inputs = None
-            entry = self.run_task(task, inputs)
-            cache[task] = entry
-            return entry
+                if task.inputs:
+                    inputs = self.run_tasks(task.inputs)
 
+                collection = task.ref.collection
+                missing[task] = (collection.build_fn, task.ref.config,
+                                 collection.dep_fn is not None, inputs)
+            else:
+                computed[task] = result
+
+        def compute_local():
+            for (task, args) in missing.items():
+                computed[task] = compute_task(args)
+
+        def compute_multiprocessing():
+            results = self.pool.imap(compute_task, missing.values())
+
+            for (task, result) in zip(missing.keys(), results):
+                computed[task] = result
+
+        fn = compute_multiprocessing if self.pool else compute_local
+        fn()
+
+        result = []
+        for task in tasks:
+            result.append(self.save_result(task, computed[task]))
+
+        return result
+
+    def run(self, all_tasks, required_tasks: [Task]):
         n_tasks = sum(1 for t in all_tasks.values() if not t.is_computed)
         self.stats = {
             "n_tasks": n_tasks,
             "n_completed": 0
         }
-        cache = {}
-        return [run_helper(task) for task in required_tasks]
+        return self.run_tasks(required_tasks)
