@@ -115,22 +115,27 @@ class LocalExecutor(Executor):
             else:
                 computed[task] = result
 
+        def save(task, result):
+            entry = self.save_result(task, result)
+            self.cache[task] = entry
+            computed[task] = entry
+
         def compute_local():
             for (task, args) in missing.items():
-                computed[task] = compute_task(args)
+                save(task, compute_task(args))
 
         def compute_multiprocessing():
             results = self.pool.imap(compute_task, missing.values())
 
             for (task, result) in zip(missing.keys(), results):
-                computed[task] = result
+                save(task, result)
 
         fn = compute_multiprocessing if self.pool else compute_local
         fn()
 
         result = []
         for task in tasks:
-            result.append(self.save_result(task, computed[task]))
+            result.append(computed[task])
 
         return result
 
