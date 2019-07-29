@@ -61,7 +61,6 @@ class LocalExecutor(Executor):
                          heartbeat_interval)
         self.heartbeat_thread = None
         self.heartbeat_stop_event = None
-        self.cache = {}
 
         self.pool = None
         if n_processes is not None and n_processes > 1:
@@ -98,27 +97,23 @@ class LocalExecutor(Executor):
         collection.runtime.db.update_stats(self.id, self.stats)
         return entry
 
-    def run_tasks(self, tasks):
-        computed = {}
+    def run_tasks(self, tasks, cache):
         missing = {}
 
         for task in tasks:
-            result = self.cache.get(task)
+            result = cache.get(task)
             if result is None:
                 inputs = None
                 if task.inputs:
-                    inputs = self.run_tasks(task.inputs)
+                    inputs = self.run_tasks(task.inputs, cache)
 
                 collection = task.ref.collection
                 missing[task] = (collection.build_fn, task.ref.config,
                                  collection.dep_fn is not None, inputs)
-            else:
-                computed[task] = result
 
         def save(task, result):
             entry = self.save_result(task, result)
-            self.cache[task] = entry
-            computed[task] = entry
+            cache[task] = entry
 
         def compute_local():
             for (task, args) in missing.items():
@@ -135,7 +130,7 @@ class LocalExecutor(Executor):
 
         result = []
         for task in tasks:
-            result.append(computed[task])
+            result.append(cache[task])
 
         return result
 
@@ -145,4 +140,5 @@ class LocalExecutor(Executor):
             "n_tasks": n_tasks,
             "n_completed": 0
         }
-        return self.run_tasks(required_tasks)
+        cache = {}
+        return self.run_tasks(required_tasks, cache)
