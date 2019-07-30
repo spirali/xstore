@@ -103,13 +103,18 @@ class LocalExecutor(Executor):
         for task in tasks:
             result = cache.get(task)
             if result is None:
-                inputs = None
-                if task.inputs:
-                    inputs = self.run_tasks(task.inputs, cache)
+                if task.is_computed:
+                    entry = task.ref.collection.get_entry(task.ref.config)
+                    assert entry is not None
+                    cache[task] = entry
+                else:
+                    inputs = None
+                    if task.inputs:
+                        inputs = self.run_tasks(task.inputs, cache)
 
-                collection = task.ref.collection
-                missing[task] = (collection.build_fn, task.ref.config,
-                                 collection.dep_fn is not None, inputs)
+                    collection = task.ref.collection
+                    missing[task] = (collection.build_fn, task.ref.config,
+                                     collection.dep_fn is not None, inputs)
 
         def save(task, result):
             entry = self.save_result(task, result)
