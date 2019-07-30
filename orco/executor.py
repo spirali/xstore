@@ -91,8 +91,8 @@ class LocalExecutor(Executor):
     def save_result(self, task: Task, result):
         ref = task.ref
         collection = ref.collection
-        entry = Entry(collection, ref.config, result, datetime.now())
-        collection.runtime.db.set_entry_value(self.id, entry)
+        entry = Entry(ref.config, result, datetime.now())
+        collection.runtime.db.set_entry_value(self.id, collection, entry)
         self.stats["n_completed"] += 1
         collection.runtime.db.update_stats(self.id, self.stats)
         return entry

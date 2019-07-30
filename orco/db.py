@@ -88,9 +88,8 @@ class DB:
             self.conn.commit()
         self.executor.submit(_helper).result()
 
-    def create_entry(self, entry):
+    def create_entry(self, collection, entry):
         def _helper():
-            collection = entry.collection
             c = self.conn.cursor()
             c.execute("INSERT INTO entries VALUES (?, ?, ?, ?, ?, ?, null)",
                     [collection.name,
@@ -102,9 +101,8 @@ class DB:
             self.conn.commit()
         self.executor.submit(_helper).result()
 
-    def set_entry_value(self, executor_id, entry):
+    def set_entry_value(self, executor_id, collection, entry):
         def _helper():
-            collection = entry.collection
             c = self.conn.cursor()
             c.execute("UPDATE entries SET value = ?, value_repr = ?, created = ? WHERE collection = ? AND key = ? AND executor = ? AND value is null",
                     [pickle.dumps(entry.value),
@@ -121,6 +119,7 @@ class DB:
 
     def get_entry_by_config(self, collection, config):
         key = collection.make_key(config)
+
         def _helper():
             c = self.conn.cursor()
             c.execute("SELECT value, created FROM entries WHERE collection = ? AND key = ? AND (value is not null OR executor is null OR executor in (SELECT id FROM executors WHERE {}))".format(self.LIVE_EXECUTOR_QUERY),
@@ -129,7 +128,7 @@ class DB:
         result = self.executor.submit(_helper).result()
         if result is None:
             return None
-        return Entry(collection, config, pickle.loads(result[0]) if result[0] is not None else None, result[1])
+        return Entry(config, pickle.loads(result[0]) if result[0] is not None else None, result[1])
 
     def has_entry_by_key(self, collection, key):
         def _helper():

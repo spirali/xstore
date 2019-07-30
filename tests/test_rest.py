@@ -1,9 +1,4 @@
 from orco import Runtime, LocalExecutor
-from multiprocessing import Process
-from contextlib import contextmanager
-
-import requests
-import time
 
 
 def test_rest_collections():
@@ -17,7 +12,7 @@ def test_rest_collections():
 
         c = rt.register_collection("hello")
 
-        c.insert({"x": 1, "y": [1,2,3]}, "ABC")
+        c.insert({"x": 1, "y": [1, 2, 3]}, "ABC")
         c.insert("e2", "A" * (1024 * 1024))
 
         rt.register_collection("hello2")
@@ -35,10 +30,10 @@ def test_rest_collections():
         rr = r.get_json()
         rr.sort(key=lambda x: x["key"])
         for item in rr:
-                assert item.get("key")
-                del item["key"]
-                assert item.get("size")
-                del item["size"]
+            assert item.get("key")
+            del item["key"]
+            assert item.get("size")
+            del item["size"]
         assert len(rr) == 2
         assert rr[0]["config"] == "e2"
         assert rr[1]["config"] == {'x': 1, 'y': [1, 2, 3]}

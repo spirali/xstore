@@ -2,10 +2,9 @@
 
 class Entry:
 
-    __slots__ = ("collection", "config", "value", "created")
+    __slots__ = ("config", "value", "created")
 
-    def __init__(self, collection, config, value, created):
-        self.collection = collection
+    def __init__(self, config, value, created):
         self.config = config
         self.value = value
         self.created = created
@@ -20,3 +19,6 @@ class Entry:
     @property
     def is_computed(self):
         return bool(self.created)
+
+    def __repr__(self):
+        return "{}: {}".format(self.config, self.value_repr)

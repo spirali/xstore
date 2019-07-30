@@ -73,8 +73,8 @@ class Collection:
         return self.runtime.compute_refs([self.ref(config) for config in configs])
 
     def insert(self, config, value):
-        entry = Entry(self, config, value, datetime.now())
-        self.runtime.db.create_entry(entry)
+        entry = Entry(config, value, datetime.now())
+        self.runtime.db.create_entry(self, entry)
 
     def make_key(self, config):
         return default_make_key(config)

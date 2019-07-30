@@ -1,6 +1,8 @@
 
-from orco import Runtime, Obj, LocalExecutor
 import pytest
+
+from orco import LocalExecutor
+
 
 def adder(config):
     return config["a"] + config["b"]
@@ -18,6 +20,7 @@ def test_collection_compute(env):
     runtime = env.runtime_in_memory()
     runtime.register_executor(LocalExecutor())
     counter = [0]
+
     def adder(config):
         counter[0] += 1
         return config["a"] + config["b"]

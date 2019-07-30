@@ -37,21 +37,21 @@ def test_db_set_value(env):
     r.db.announce_entries(e1.id, [c.ref("cfg1")], [])
     assert r.db.get_entry_state(c, c.make_key("cfg1")) == "announced"
 
-    entry = Entry(c, "cfg1", "value1", datetime.now())
-    r.db.set_entry_value(e1.id, entry)
+    entry = Entry("cfg1", "value1", datetime.now())
+    r.db.set_entry_value(e1.id, c, entry)
     assert r.db.get_entry_state(c, c.make_key("cfg1")) == "finished"
 
     with pytest.raises(Exception):
-        r.db.set_entry_value(e1.id, entry)
+        r.db.set_entry_value(e1.id, c, entry)
 
-    entry2 = Entry(c, "cfg2", "value2", datetime.now())
+    entry2 = Entry("cfg2", "value2", datetime.now())
     with pytest.raises(Exception):
-        r.db.set_entry_value(e1.id, entry2)
+        r.db.set_entry_value(e1.id, c, entry2)
     r.db.announce_entries(e1.id, [c.ref("cfg2")], [])
-    r.db.set_entry_value(e1.id, entry2)
+    r.db.set_entry_value(e1.id, c, entry2)
 
     with pytest.raises(Exception):
-        r.db.create_entry(entry2)
+        r.db.create_entry(c, entry2)
 
-    entry3 = Entry(c, "cfg3", "value3", datetime.now())
-    r.db.create_entry(entry3)
+    entry3 = Entry("cfg3", "value3", datetime.now())
+    r.db.create_entry(c, entry3)
