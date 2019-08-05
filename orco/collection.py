@@ -74,6 +74,9 @@ class Collection:
         #return self.runtime.db.remove_entries(
         #    ((self.name, self.make_key(config)) for config in configs))
 
+    def clean(self):
+        self.runtime.db.clean_collection(self.name)
+
     def compute_many(self, configs):
         return self.runtime.compute_refs([self.ref(config) for config in configs])
 

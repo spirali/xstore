@@ -16,6 +16,7 @@ def test_reopen_collection(env):
     with pytest.raises(Exception):
         runtime.register_collection("col1", adder)
 
+
 def test_fixed_collection(env):
     runtime = env.test_runtime()
     runtime.register_executor(LocalExecutor())
@@ -220,3 +221,27 @@ def test_collection_stored_deps(env):
     col1.compute(2)
 
     #runtime.serve()
+
+
+def test_collection_clean(env, tmpdir):
+    runtime = env.test_runtime()
+    runtime.register_executor(LocalExecutor())
+
+    counter_file = tmpdir.join("counter")
+    counter_file.write_binary(pickle.dumps(0))
+
+    def fn(config):
+        counter = pickle.loads(counter_file.read_binary())
+        counter += 1
+        counter_file.write_binary(pickle.dumps(counter))
+        return config
+
+    col1 = runtime.register_collection("col1", fn)
+    res = col1.compute(1)
+    assert pickle.loads(counter_file.read_binary()) == 1
+    res = col1.compute(1)
+    assert pickle.loads(counter_file.read_binary()) == 1
+
+    col1.clean()
+    res = col1.compute(1)
+    assert pickle.loads(counter_file.read_binary()) == 2

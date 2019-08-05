@@ -128,12 +128,24 @@ class DB:
                 print(x)
         self._run(_helper)
 
+    def _ensure_collection_query(self, cursor, name):
+        cursor.execute("INSERT OR IGNORE INTO collections VALUES (?)", [name])
+
     def ensure_collection(self, name):
         def _helper():
             with self.conn:
                 c = self.conn.cursor()
-                c.execute("INSERT OR IGNORE INTO collections VALUES (?)", [name])
+                self._ensure_collection_query(c, name)
         self._run(_helper)
+
+    def clean_collection(self, name):
+        def _helper():
+            with self.conn:
+                c = self.conn.cursor()
+                c.execute("DELETE FROM collections WHERE name = (?)", [name])
+                self._ensure_collection_query(c, name)
+        self._run(_helper)
+        self.ensure_collection(name)
 
     def create_entry(self, collection_name, key, entry):
         assert entry.created is None
