@@ -218,20 +218,9 @@ def test_collection_clean(env, tmpdir):
     runtime = env.test_runtime()
     runtime.register_executor(LocalExecutor())
 
-    counter_file = FileStorage(tmpdir.join("counter"), 0)
-
-    def fn(config, deps):
-        counter_file.write(counter_file.read() + 1)
-        return config
-
     col1 = runtime.register_collection("col1", lambda c: c)
-    col2 = runtime.register_collection("col2", fn, lambda c: [col1.ref(c)])
+    col2 = runtime.register_collection("col2", lambda c, d: c, lambda c: [col1.ref(c)])
 
     col2.compute(1)
-    assert counter_file.read() == 1
-    col2.compute(1)
-    assert counter_file.read() == 1
-
     col1.clean()
-    col2.compute(1)
-    assert counter_file.read() == 2
+    assert col2.get_entry_state(1) is None
