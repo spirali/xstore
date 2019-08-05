@@ -1,6 +1,7 @@
-
-import sys
 import os
+import pickle
+import sys
+
 import pytest
 
 TEST_DIR = os.path.dirname(__file__)
@@ -11,6 +12,7 @@ import orco  # noqa
 import logging
 
 logger = logging.getLogger("test")
+
 
 class TestEnv:
 
@@ -36,3 +38,17 @@ def env(tmpdir):
     test_env = TestEnv(tmpdir)
     yield test_env
     test_env.stop()
+
+
+class FileStorage:
+    def __init__(self, path, init_value):
+        self.path = path
+        self.write(init_value)
+
+    def read(self):
+        with open(self.path, "rb") as f:
+            return pickle.load(f)
+
+    def write(self, count):
+        with open(self.path, "wb") as f:
+            pickle.dump(count, f)

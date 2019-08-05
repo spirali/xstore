@@ -1,9 +1,10 @@
-from orco import LocalExecutor
-from orco.entry import Entry
 import time
-from datetime import datetime
 
 import pytest
+
+from orco import LocalExecutor
+from orco.entry import Entry
+
 
 def test_db_announce(env):
     r = env.test_runtime()
@@ -75,7 +76,6 @@ def test_db_run_stats(env):
     runtime.db.set_entry_value(e1.id, c.name, c.make_key("c"), entry)
     entry = Entry("d", "value", comp_time=4)
     runtime.db.set_entry_value(e1.id, c.name, c.make_key("d"), entry)
-
 
     r = runtime.db.get_run_stats("col1")
     assert pytest.approx(2.5) == r["avg"]

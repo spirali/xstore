@@ -2,6 +2,7 @@ from orco import Obj
 
 import pytest
 
+
 def test_object_creation():
     o = Obj(x=10, abc_xyz="test test")
 

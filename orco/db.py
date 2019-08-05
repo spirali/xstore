@@ -142,10 +142,24 @@ class DB:
         def _helper():
             with self.conn:
                 c = self.conn.cursor()
-                c.execute("DELETE FROM collections WHERE name = (?)", [name])
-                self._ensure_collection_query(c, name)
+                c.execute("""
+WITH RECURSIVE
+    selected(collection, key) AS (
+        SELECT collection, key
+        FROM entries
+        WHERE collection = (?)
+        UNION
+        SELECT collection_t,  cast(key_t as TEXT)
+        FROM selected
+        JOIN deps ON selected.collection == deps.collection_s AND selected.key == deps.key_s
+    )
+DELETE FROM entries
+WHERE rowid IN
+    (SELECT entries.rowid
+    FROM selected
+    LEFT JOIN entries ON entries.collection == selected.collection AND entries.key == selected.key)
+    """, [name])
         self._run(_helper)
-        self.ensure_collection(name)
 
     def create_entry(self, collection_name, key, entry):
         assert entry.created is None

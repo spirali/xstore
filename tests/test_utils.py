@@ -14,7 +14,6 @@ def test_format_time():
     assert format_time(1000/3) == "5.6m"
     assert format_time(150.3) == "2.5m"
 
-
     assert format_time(3600) == "1.0h"
     assert format_time(100000/3) == "9.3h"
     assert format_time(1000000000) == "277777.8h"

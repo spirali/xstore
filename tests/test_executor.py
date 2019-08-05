@@ -60,7 +60,6 @@ def test_executor_error(env):
     assert col2.compute([10, 20]).value == 15
     assert col2.compute([1, 2, 4]).value == 175
 
-
     with pytest.raises(ZeroDivisionError):
         assert col1.compute(0)
     assert col0.get_entry_state(0) == "finished"

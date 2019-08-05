@@ -3,6 +3,7 @@ import pytest
 import pickle
 
 from orco import LocalExecutor
+from tests.conftest import FileStorage
 
 
 def adder(config):
@@ -39,13 +40,10 @@ def test_collection_compute(env, tmpdir):
     runtime = env.test_runtime()
     runtime.register_executor(LocalExecutor(n_processes=1))
 
-    counter_file = tmpdir.join("counter")
-    counter_file.write_binary(pickle.dumps(0))
+    counter = FileStorage(tmpdir.join("counter"), 0)
 
     def adder(config):
-        counter = pickle.loads(counter_file.read_binary())
-        counter += 1
-        counter_file.write_binary(pickle.dumps(counter))
+        counter.write(counter.read() + 1)
         return config["a"] + config["b"]
 
     collection = runtime.register_collection("col1", adder)
@@ -54,8 +52,7 @@ def test_collection_compute(env, tmpdir):
     assert entry.config["a"] == 10
     assert entry.config["b"] == 30
     assert entry.value == 40
-    counter = pickle.loads(counter_file.read_binary())
-    assert counter == 1
+    assert counter.read() == 1
 
     result = collection.compute_many([{"a": 10, "b": 30}])
     assert len(result) == 1
@@ -63,27 +60,25 @@ def test_collection_compute(env, tmpdir):
     assert entry.config["a"] == 10
     assert entry.config["b"] == 30
     assert entry.value == 40
-    assert counter == 1
+    assert counter.read() == 1
 
 
 def test_collection_deps(env, tmpdir):
     runtime = env.test_runtime()
     runtime.register_executor(LocalExecutor(n_processes=1))
-    counter = [0, 0]
 
-    counter_file = tmpdir.join("counter")
-    counter_file.write_binary(pickle.dumps(counter))
+    counter_file = FileStorage(tmpdir.join("counter"), [0, 0])
 
     def builder1(config):
-        counter = pickle.loads(counter_file.read_binary())
+        counter = counter_file.read()
         counter[0] += 1
-        counter_file.write_binary(pickle.dumps(counter))
+        counter_file.write(counter)
         return config * 10
 
     def builder2(config, deps):
-        counter = pickle.loads(counter_file.read_binary())
+        counter = counter_file.read()
         counter[1] += 1
-        counter_file.write_binary(pickle.dumps(counter))
+        counter_file.write(counter)
         return sum(e.value for e in deps)
 
     def make_deps(config):
@@ -94,36 +89,36 @@ def test_collection_deps(env, tmpdir):
 
     e = col2.compute(5)
 
-    counter = pickle.loads(counter_file.read_binary())
+    counter = counter_file.read()
     assert counter == [5, 1]
     assert e.value == 100
 
     e = col2.compute(4)
 
-    counter = pickle.loads(counter_file.read_binary())
+    counter = counter_file.read()
     assert counter == [5, 2]
     assert e.value == 60
 
     col1.remove_many([0, 3])
 
     e = col2.compute(6)
-    counter = pickle.loads(counter_file.read_binary())
+    counter = counter_file.read()
     assert counter == [8, 3]
     assert e.value == 150
 
     e = col2.compute(6)
-    counter = pickle.loads(counter_file.read_binary())
+    counter = counter_file.read()
     assert counter == [8, 3]
     assert e.value == 150
 
     col2.remove(6)
     e = col2.compute(5)
-    counter = pickle.loads(counter_file.read_binary())
+    counter = counter_file.read()
     assert counter == [8, 4]
     assert e.value == 100
 
     e = col2.compute(6)
-    counter = pickle.loads(counter_file.read_binary())
+    counter = counter_file.read()
     assert counter == [8, 5]
     assert e.value == 150
 
@@ -152,7 +147,6 @@ def test_collection_stored_deps(env):
                                        lambda c: [col2.ref({"start": 0, "end": c, "step": 2}), col2.ref({"start": 0, "end": c, "step": 3})])
     assert col3.compute(10).value == 380
 
-
     cc2_2 = {"end": 10, "start": 0, "step": 2}
     cc2_3 = {"end": 10, "start": 0, "step": 3}
     c2_2 = col2.make_key(cc2_2)
@@ -163,7 +157,6 @@ def test_collection_stored_deps(env):
     assert col2.get_entry_state(cc2_3) == "finished"
     assert col1.get_entry_state(0) == "finished"
     assert col1.get_entry_state(2) == "finished"
-
 
     assert set(runtime.db.get_recursive_consumers(col1.name, "2")) == {
         ("col1", "2"), ('col2', "{'end':10,'start':0,'step':2,}"), ('col3', "10")
@@ -220,28 +213,25 @@ def test_collection_stored_deps(env):
 
     col1.compute(2)
 
-    #runtime.serve()
-
 
 def test_collection_clean(env, tmpdir):
     runtime = env.test_runtime()
     runtime.register_executor(LocalExecutor())
 
-    counter_file = tmpdir.join("counter")
-    counter_file.write_binary(pickle.dumps(0))
+    counter_file = FileStorage(tmpdir.join("counter"), 0)
 
-    def fn(config):
-        counter = pickle.loads(counter_file.read_binary())
-        counter += 1
-        counter_file.write_binary(pickle.dumps(counter))
+    def fn(config, deps):
+        counter_file.write(counter_file.read() + 1)
         return config
 
-    col1 = runtime.register_collection("col1", fn)
-    res = col1.compute(1)
-    assert pickle.loads(counter_file.read_binary()) == 1
-    res = col1.compute(1)
-    assert pickle.loads(counter_file.read_binary()) == 1
+    col1 = runtime.register_collection("col1", lambda c: c)
+    col2 = runtime.register_collection("col2", fn, lambda c: [col1.ref(c)])
+
+    col2.compute(1)
+    assert counter_file.read() == 1
+    col2.compute(1)
+    assert counter_file.read() == 1
 
     col1.clean()
-    res = col1.compute(1)
-    assert pickle.loads(counter_file.read_binary()) == 2
+    col2.compute(1)
+    assert counter_file.read() == 2
