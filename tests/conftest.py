@@ -27,6 +27,9 @@ class TestEnv:
         self.runtimes.append(r)
         return r
 
+    def file_storage(self, name, init_value):
+        return FileStorage(self.tmpdir.join(name), init_value)
+
     def stop(self):
         for r in self.runtimes:
             r.stop()

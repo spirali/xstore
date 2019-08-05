@@ -1,9 +1,6 @@
-
 import pytest
-import pickle
 
 from orco import LocalExecutor
-from tests.conftest import FileStorage
 
 
 def adder(config):
@@ -36,11 +33,11 @@ def test_fixed_collection(env):
         assert fix1.compute("b")
 
 
-def test_collection_compute(env, tmpdir):
+def test_collection_compute(env):
     runtime = env.test_runtime()
     runtime.register_executor(LocalExecutor(n_processes=1))
 
-    counter = FileStorage(tmpdir.join("counter"), 0)
+    counter = env.file_storage("counter", 0)
 
     def adder(config):
         counter.write(counter.read() + 1)
@@ -63,11 +60,11 @@ def test_collection_compute(env, tmpdir):
     assert counter.read() == 1
 
 
-def test_collection_deps(env, tmpdir):
+def test_collection_deps(env):
     runtime = env.test_runtime()
     runtime.register_executor(LocalExecutor(n_processes=1))
 
-    counter_file = FileStorage(tmpdir.join("counter"), [0, 0])
+    counter_file = env.file_storage("counter", [0, 0])
 
     def builder1(config):
         counter = counter_file.read()
@@ -214,7 +211,7 @@ def test_collection_stored_deps(env):
     col1.compute(2)
 
 
-def test_collection_clean(env, tmpdir):
+def test_collection_clean(env):
     runtime = env.test_runtime()
     runtime.register_executor(LocalExecutor())
 
