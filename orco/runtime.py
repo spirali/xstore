@@ -75,14 +75,23 @@ class Runtime:
     def update_heartbeat(self, id):
         self.db.update_heartbeat(id)
 
-    def serve(self, port=8550, debug=False, testing=False):
+    def serve(self, port=8550, debug=False, testing=False, nonblocking=False):
         from .browser import init_service
         app = init_service(self)
         if testing:
             app.testing = True
             return app
         else:
-            app.run(port=port, debug=debug, use_reloader=False)
+            def run_app():
+                app.run(port=port, debug=debug, use_reloader=False)
+
+            if nonblocking:
+                t = threading.Thread(target=run_app)
+                t.daemon = True
+                t.start()
+                return t
+            else:
+                run_app()
 
     def get_entry(self, ref):
         collection = ref.collection
