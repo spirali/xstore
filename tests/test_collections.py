@@ -221,3 +221,24 @@ def test_collection_clean(env):
     col2.compute(1)
     col1.clean()
     assert col2.get_entry_state(1) is None
+
+
+def test_collection_computed(env):
+    runtime = env.test_runtime()
+    runtime.register_executor(LocalExecutor(n_processes=1))
+
+    def build_fn(x):
+        if x > 1:
+            return x
+        else:
+            raise Exception("Error")
+
+    collection = runtime.register_collection("col1", build_fn)
+    configs = [2, 3, 4, 0, 5]
+
+    assert collection.get_entries(configs) == [None] * len(configs)
+
+    with pytest.raises(Exception):
+        collection.compute_many(configs)
+
+    assert [e.value if e else e for e in collection.get_entries(configs)] == [2, 3, 4, None, 5]
