@@ -221,3 +221,22 @@ def test_collection_clean(env):
     col2.compute(1)
     col1.clean()
     assert col2.get_entry_state(1) is None
+
+
+def test_collection_invalidate(env):
+    runtime = env.test_runtime()
+    runtime.register_executor(LocalExecutor())
+
+    col1 = runtime.register_collection("col1", lambda c: c)
+    col2 = runtime.register_collection("col2", lambda c, d: c, lambda c: [col1.ref(c)])
+    col3 = runtime.register_collection("col3", lambda c, d: c, lambda c: [col1.ref(c)])
+    col4 = runtime.register_collection("col4", lambda c, d: c, lambda c: [col2.ref(c)])
+
+    col4.compute(1)
+    col3.compute(1)
+
+    col2.invalidate(1)
+    assert col1.get_entry_state(1) is None
+    assert col2.get_entry_state(1) is None
+    assert col4.get_entry_state(1) is None
+    assert col3.get_entry_state(1) is None

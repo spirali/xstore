@@ -77,14 +77,18 @@ class Collection:
         return self.runtime.db.get_entry_state(self.name, self.make_key(config))
 
     def remove(self, config):
-        return self.runtime.db.remove_entry_by_key(self.name, self.make_key(config))
+        return self.remove_many([config])
 
     def remove_many(self, configs):
-        # TODO: Do in one step in DB
-        for config in configs:
-            self.remove(config)
-        #return self.runtime.db.remove_entries(
-        #    ((self.name, self.make_key(config)) for config in configs))
+        self.runtime.db.remove_entries_by_key(self.name,
+                                              [self.make_key(config) for config in configs])
+
+    def invalidate(self, config):
+        self.invalidate_many([config])
+
+    def invalidate_many(self, configs):
+        self.runtime.db.invalidate_entries_by_key(self.name,
+                                                  [self.make_key(config) for config in configs])
 
     def clean(self):
         self.runtime.db.clean_collection(self.name)

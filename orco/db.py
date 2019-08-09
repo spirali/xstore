@@ -250,11 +250,41 @@ WHERE rowid IN
         config, value, created = result
         return Entry(pickle.loads(config), pickle.loads(value) if value is not None else None, created)
 
-    def remove_entry_by_key(self, collection_name, key):
+    def remove_entries_by_key(self, collection_name, keys):
         def _helper():
             with self.conn:
-                self.conn.cursor().execute("{} DELETE FROM entries WHERE rowid IN (SELECT entries.rowid FROM selected LEFT JOIN entries ON entries.collection == selected.collection AND entries.key == selected.key)".format(self.RECURSIVE_CONSUMERS),
-                    [collection_name, key])
+                self.conn.cursor().executemany("""{}
+                DELETE FROM entries
+                WHERE rowid IN
+                    (SELECT entries.rowid
+                     FROM selected LEFT JOIN entries ON
+                     entries.collection == selected.collection AND entries.key == selected.key)
+                """.format(self.RECURSIVE_CONSUMERS), [[collection_name, key] for key in keys])
+        self._run(_helper)
+
+    def invalidate_entries_by_key(self, collection_name, keys):
+        def _helper():
+            with self.conn:
+                self.conn.cursor().executemany("""
+WITH RECURSIVE
+children(collection, key) AS (
+    WITH RECURSIVE
+    parents(collection, key) AS (
+        VALUES(?, ?)
+        UNION
+        SELECT collection_s,  cast(key_s as TEXT) FROM parents, deps WHERE parents.collection == deps.collection_t AND parents.key == deps.key_t
+    )
+    SELECT *
+    FROM parents
+    UNION
+    SELECT collection_t,  cast(key_t as TEXT) FROM children, deps WHERE children.collection == deps.collection_s AND children.key == deps.key_s
+)
+DELETE FROM entries
+    WHERE rowid IN
+        (SELECT entries.rowid
+         FROM children LEFT JOIN entries ON
+         entries.collection == children.collection AND entries.key == children.key)
+                """.format(self.RECURSIVE_CONSUMERS), [[collection_name, key] for key in keys])
         self._run(_helper)
 
     """
