@@ -236,3 +236,43 @@ def test_collection_to_pandas(env):
     assert sorted(frame["value"]) == [2, 4, 6, 8]
 
     assert frame[frame["config"] == 1]["value"].iloc[0] == 2
+
+    
+def test_collection_invalidate(env):
+    runtime = env.test_runtime()
+    runtime.register_executor(LocalExecutor())
+
+    col1 = runtime.register_collection("col1", lambda c: c)
+    col2 = runtime.register_collection("col2", lambda c, d: c, lambda c: [col1.ref(c)])
+    col3 = runtime.register_collection("col3", lambda c, d: c, lambda c: [col1.ref(c)])
+    col4 = runtime.register_collection("col4", lambda c, d: c, lambda c: [col2.ref(c)])
+
+    col4.compute(1)
+    col3.compute(1)
+
+    col2.invalidate(1)
+    assert col1.get_entry_state(1) is None
+    assert col2.get_entry_state(1) is None
+    assert col4.get_entry_state(1) is None
+    assert col3.get_entry_state(1) is None
+
+
+def test_collection_computed(env):
+    runtime = env.test_runtime()
+    runtime.register_executor(LocalExecutor(n_processes=1))
+
+    def build_fn(x):
+        if x > 1:
+            return x
+        else:
+            raise Exception("Error")
+
+    collection = runtime.register_collection("col1", build_fn)
+    configs = [2, 3, 4, 0, 5]
+
+    assert collection.get_entries(configs) == [None] * len(configs)
+
+    with pytest.raises(Exception):
+        collection.compute_many(configs)
+
+    assert [e.value if e else e for e in collection.get_entries(configs)] == [2, 3, 4, None, 5]

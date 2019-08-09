@@ -65,9 +65,13 @@ class Collection:
     def compute(self, config):
         return self.compute_many([config])[0]
 
+    def get_entries(self, configs):
+        return [self.get_entry(config) for config in configs]
+
     def get_entry(self, config):
         entry = self.runtime.db.get_entry_no_config(self.name, self.make_key(config))
-        entry.config = config
+        if entry is not None:
+            entry.config = config
         return entry
 
     def has_entry(self, config):
@@ -77,14 +81,18 @@ class Collection:
         return self.runtime.db.get_entry_state(self.name, self.make_key(config))
 
     def remove(self, config):
-        return self.runtime.db.remove_entry_by_key(self.name, self.make_key(config))
+        return self.remove_many([config])
 
     def remove_many(self, configs):
-        # TODO: Do in one step in DB
-        for config in configs:
-            self.remove(config)
-        #return self.runtime.db.remove_entries(
-        #    ((self.name, self.make_key(config)) for config in configs))
+        self.runtime.db.remove_entries_by_key(self.name,
+                                              [self.make_key(config) for config in configs])
+
+    def invalidate(self, config):
+        self.invalidate_many([config])
+
+    def invalidate_many(self, configs):
+        self.runtime.db.invalidate_entries_by_key(self.name,
+                                                  [self.make_key(config) for config in configs])
 
     def clean(self):
         self.runtime.db.clean_collection(self.name)
