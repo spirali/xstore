@@ -65,9 +65,13 @@ class Collection:
     def compute(self, config):
         return self.compute_many([config])[0]
 
+    def get_entries(self, configs):
+        return [self.get_entry(config) for config in configs]
+
     def get_entry(self, config):
         entry = self.runtime.db.get_entry_no_config(self.name, self.make_key(config))
-        entry.config = config
+        if entry is not None:
+            entry.config = config
         return entry
 
     def has_entry(self, config):
