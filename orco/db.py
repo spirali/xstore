@@ -1,11 +1,13 @@
-import apsw
-import pickle
 import json
 import logging
 import math
+import pickle
 from concurrent.futures import ThreadPoolExecutor
-from .entry import Entry
 
+import apsw
+import pandas as pd
+
+from .entry import Entry
 
 logger = logging.getLogger(__name__)
 
@@ -421,3 +423,18 @@ WHERE rowid IN
                 c.execute("""UPDATE executors SET heartbeat = DATETIME('now'), stats = null WHERE id = ?""", [id])
                 c.execute("""DELETE FROM entries WHERE executor == ? AND value is null""", [id])
         self._run(_helper)
+
+    def to_pandas(self, collection_name):
+        def _helper():
+            c = self.conn.cursor()
+            r = c.execute(
+                "SELECT config, value, comp_time FROM entries WHERE collection = ?",
+                [collection_name])
+            return [
+                {"config": pickle.loads(config),
+                 "value": pickle.loads(value),
+                 "comp_time": comp_time}
+                for config, value, comp_time in r.fetchall()
+            ]
+
+        return pd.DataFrame(self._run(_helper))

@@ -98,3 +98,6 @@ class Collection:
 
     def make_key(self, config):
         return default_make_key(config)
+
+    def to_pandas(self):
+        return self.runtime.db.to_pandas(self.name)
