@@ -25,17 +25,28 @@ class Runtime:
         self._lock = threading.Lock()
 
         self.executors = []
+        self.stopped = False
 
         logging.debug("Starting runtime %s (db=%s)", self, db_path)
 
         if executor:
             self.register_executor(executor)
 
+    def __enter__(self):
+        self._check_stopped()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.stop()
+
     def stop(self):
+        self._check_stopped()
+
         logger.debug("Stopping runtime %s", self)
         for executor in self.executors:
             logger.debug("Stopping executor %s", executor)
             executor.stop()
+        self.stopped = True
 
     def register_executor(self, executor):
         logger.debug("Registering executor %s", executor)
@@ -143,6 +154,9 @@ class Runtime:
 
         return tasks, global_deps, len(conflicts)
 
+    def _check_stopped(self):
+        if self.stopped:
+            raise Exception("Runtime was already stopped")
 
     def _print_report(self, tasks):
         tasks_per_collection = collections.Counter([t.ref.collection.name for t in tasks.values()])

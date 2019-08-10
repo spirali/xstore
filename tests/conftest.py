@@ -32,7 +32,8 @@ class TestEnv:
 
     def stop(self):
         for r in self.runtimes:
-            r.stop()
+            if not r.stopped:
+                r.stop()
         self.runtimes = []
 
 
