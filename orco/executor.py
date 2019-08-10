@@ -1,20 +1,19 @@
+import logging
 import multiprocessing
 import threading
 import time
-import cloudpickle
-import logging
-import tqdm
-
 from concurrent.futures import ProcessPoolExecutor, wait, FIRST_COMPLETED
 from datetime import datetime
 
+import cloudpickle
+import tqdm
 
-from .entry import RawEntry
-from .task import Task
+from orco.ref import resolve_refs, ref_to_refkey, RefKey
 from .db import DB
-
+from .task import Task
 
 logger = logging.getLogger(__name__)
+
 
 class Executor:
 
@@ -124,7 +123,7 @@ class LocalExecutor(Executor):
             logging.debug("Writing into db: %s", unprocessed)
             db.set_entry_values(self.id, unprocessed, self.stats)
             for raw_entry in unprocessed:
-                ref_key = (raw_entry.collection_name, raw_entry.key)
+                ref_key = RefKey(raw_entry.collection_name, raw_entry.key)
                 task = all_tasks[ref_key]
                 #col_progressbars[ref_key[0]].update()
                 for c in consumers.get(task, ()):
@@ -140,7 +139,10 @@ class LocalExecutor(Executor):
             if pickled_fns is None:
                 pickled_fns = cloudpickle.dumps((collection.build_fn, collection._make_raw_entry))
                 pickle_cache[collection.name] = pickled_fns
+            dep_value = None
             if task.inputs is not None:
+                dep_value = collection.dep_fn(task.ref.config)
+                dep_value = ref_to_refkey(dep_value)
                 inputs = [t.ref.ref_key() if isinstance(t, Task) else t.ref_key() for t in task.inputs]
             else:
                 inputs = None
@@ -150,6 +152,7 @@ class LocalExecutor(Executor):
                                pickled_fns,
                                task.ref.ref_key(),
                                task.ref.config,
+                               dep_value,
                                inputs)
         self.stats = {
             "n_tasks": len(all_tasks),
@@ -198,7 +201,7 @@ class LocalExecutor(Executor):
 _per_process_db = None
 
 
-def _run_task(executor_id, db_path, fns, ref_key, config, deps):
+def _run_task(executor_id, db_path, fns, ref_key, config, dep_value, deps):
     global _per_process_db
     if _per_process_db is None:
         _per_process_db = DB(db_path, threading=False)
@@ -207,9 +210,10 @@ def _run_task(executor_id, db_path, fns, ref_key, config, deps):
     start_time = time.time()
 
     if deps is not None:
-        value_deps = [_per_process_db.get_entry(*ref) for ref in deps]
-        value = build_fn(config, value_deps)
+        ref_map = {ref: _per_process_db.get_entry(ref.collection, ref.key) for ref in deps}
+        dep_value = resolve_refs(dep_value, ref_map)
+        value = build_fn(config, dep_value)
     else:
         value = build_fn(config)
     end_time = time.time()
-    return finalize_fn(ref_key[0], ref_key[1], None, value, end_time - start_time)
+    return finalize_fn(ref_key.collection, ref_key.key, None, value, end_time - start_time)
