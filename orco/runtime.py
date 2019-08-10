@@ -96,7 +96,8 @@ class Runtime:
     def get_entry(self, ref):
         collection = ref.collection
         entry = self.db.get_entry_no_config(collection.name, collection.make_key(ref.config))
-        entry.config = ref.config
+        if entry is not None:
+            entry.config = ref.config
         return entry
 
     def _create_compute_tree(self, refs, exists):

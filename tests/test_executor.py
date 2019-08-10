@@ -69,6 +69,29 @@ def test_executor_error(env):
     assert col2.compute([1, 2, 4]).value == 175
 
 
+def test_executor_fallible(env):
+    runtime = env.test_runtime()
+    executor = LocalExecutor(heartbeat_interval=1, n_processes=2, skip_errors=True)
+    runtime.register_executor(executor)
+
+    counter = env.file_storage("counter", 0)
+
+    def build_fn(c):
+        if c == 0:
+            if counter.read() == 0:
+                counter.write(counter.read() + 1)
+                return 1 / c
+            else:
+                return 1
+        else:
+            return c
+
+    col0 = runtime.register_collection("col0", build_fn)
+
+    col0.compute_many([10, 0, 20])
+    assert col0.get_entry_state(0) is None
+    assert [e.value for e in col0.compute_many([10, 0, 20])] == [10, 1, 20]
+
 
 def test_executor_conflict(env, tmpdir):
 

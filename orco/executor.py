@@ -1,18 +1,15 @@
+import logging
 import multiprocessing
 import threading
 import time
-import cloudpickle
-import logging
-import tqdm
-
 from concurrent.futures import ProcessPoolExecutor, wait, FIRST_COMPLETED
 from datetime import datetime
 
+import cloudpickle
+import tqdm
 
-from .entry import RawEntry
-from .task import Task
 from .db import DB
-
+from .task import Task
 
 logger = logging.getLogger(__name__)
 
@@ -61,11 +58,21 @@ def compute_task(args):
         return build_fn(config)
 
 
+class TaskFailed(Exception):
+    def __init__(self, collection, key, error):
+        self.collection = collection
+        self.key = key
+        self.error = error
+
+    def __repr__(self):
+        return "{}/{}:\n{}".format(self.collection, self.key, self.error)
+
+
 class LocalExecutor(Executor):
 
     _debug_do_not_start_heartbeat = False
 
-    def __init__(self, heartbeat_interval=7, n_processes=None):
+    def __init__(self, heartbeat_interval=7, n_processes=None, skip_errors=False):
         super().__init__("local", "0.0", "{} cpus".format(multiprocessing.cpu_count()),
                          heartbeat_interval)
         self.heartbeat_thread = None
@@ -73,6 +80,7 @@ class LocalExecutor(Executor):
 
         self.pool = None
         self.n_processes = n_processes
+        self.skip_errors = skip_errors
 
     def get_stats(self):
         return self.stats
@@ -178,9 +186,18 @@ class LocalExecutor(Executor):
                 for f in wait_result.done:
                     self.stats["n_completed"] += 1
                     progressbar.update()
-                    raw_entry = f.result()
-                    logger.debug("Task finished: %s/%s", raw_entry.collection_name, raw_entry.key)
-                    unprocessed.append(raw_entry)
+                    try:
+                        raw_entry = f.result()
+                        logger.debug("Task finished: %s/%s", raw_entry.collection_name,
+                                     raw_entry.key)
+                        unprocessed.append(raw_entry)
+                    except BaseException as e:
+                        assert isinstance(e, TaskFailed)
+                        logger.debug("Task errored: %s/%s", e.collection, e.key)
+                        self.runtime.db.unannounce_entries(self.id, [(e.collection, e.key)])
+                        if not self.skip_errors:
+                            raise e.error
+
                 if unprocessed and (not waiting or time.time() - last_write > 1):
                     process_unprocessed()
                     unprocessed = []
@@ -206,10 +223,14 @@ def _run_task(executor_id, db_path, fns, ref_key, config, deps):
 
     start_time = time.time()
 
-    if deps is not None:
-        value_deps = [_per_process_db.get_entry(*ref) for ref in deps]
-        value = build_fn(config, value_deps)
-    else:
-        value = build_fn(config)
+    try:
+        if deps is not None:
+            value_deps = [_per_process_db.get_entry(*ref) for ref in deps]
+            value = build_fn(config, value_deps)
+        else:
+            value = build_fn(config)
+    except BaseException as e:
+        raise TaskFailed(ref_key[0], ref_key[1], e)
+
     end_time = time.time()
     return finalize_fn(ref_key[0], ref_key[1], None, value, end_time - start_time)
