@@ -65,6 +65,12 @@ def resolve_product(data, computed, resolving, args):
         assert False
 
 
+def resolve_zip(data, computed, resolving, args):
+    assert is_list_like(args)
+    assert check_type_all(args, list) or check_type_all(args, tuple)
+    return list(zip(*[resolve(data, computed, resolving, item) for item in args]))
+
+
 def resolve(data, computed, resolving, value):
     op = get_magic_operator(value)
     if op is not None:
@@ -73,7 +79,8 @@ def resolve(data, computed, resolving, value):
             "$ref": resolve_ref,
             "$range": resolve_range,
             "$+": resolve_concat,
-            "$product": resolve_product
+            "$product": resolve_product,
+            "$zip": resolve_zip
         }
         assert op in ops
         return ops[op](data, computed, resolving, args)
