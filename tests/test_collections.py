@@ -49,6 +49,7 @@ def test_collection_compute(env):
     assert entry.config["a"] == 10
     assert entry.config["b"] == 30
     assert entry.value == 40
+    assert entry.comp_time >= 0
     assert counter.read() == 1
 
     result = collection.compute_many([{"a": 10, "b": 30}])
@@ -57,6 +58,7 @@ def test_collection_compute(env):
     assert entry.config["a"] == 10
     assert entry.config["b"] == 30
     assert entry.value == 40
+    assert entry.comp_time >= 0
     assert counter.read() == 1
 
 

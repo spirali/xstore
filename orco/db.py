@@ -231,25 +231,34 @@ WHERE rowid IN
     def get_entry_no_config(self, collection_name, key):
         def _helper():
             c = self.conn.cursor()
-            c.execute("SELECT value, created FROM entries WHERE collection = ? AND key = ? AND (value is not null OR executor is null OR executor in (SELECT id FROM executors WHERE {}))".format(self.LIVE_EXECUTOR_QUERY),
-                    [collection_name, key])
+            c.execute("""
+                SELECT value, created, comp_time
+                FROM entries
+                WHERE collection = ? AND key = ? AND
+                    (value is not null OR executor is null OR executor in
+                    (SELECT id FROM executors WHERE {}))"""
+                      .format(self.LIVE_EXECUTOR_QUERY), [collection_name, key])
             return c.fetchone()
         result = self._run(_helper)
         if result is None:
             return None
-        return Entry(None, pickle.loads(result[0]) if result[0] is not None else None, result[1])
+        return Entry(None, pickle.loads(result[0]) if result[0] is not None else None,
+                     result[1], result[2])
 
     def get_entry(self, collection_name, key):
         def _helper():
             c = self.conn.cursor()
-            c.execute("SELECT config, value, created FROM entries WHERE collection = ? AND key = ?",
-                    [collection_name, key])
+            c.execute("""
+                SELECT config, value, created, comp_time
+                FROM entries
+                WHERE collection = ? AND key = ?""", [collection_name, key])
             return c.fetchone()
         result = self._run(_helper)
         if result is None:
             return None
-        config, value, created = result
-        return Entry(pickle.loads(config), pickle.loads(value) if value is not None else None, created)
+        config, value, created, comp_time = result
+        return Entry(pickle.loads(config), pickle.loads(value) if value is not None else None,
+                     created, comp_time)
 
     def remove_entries_by_key(self, collection_name, keys):
         def _helper():
