@@ -1,7 +1,7 @@
 import collections
 
-class Entry:
 
+class Entry:
     __slots__ = ("config", "value", "created", "comp_time")
 
     def __init__(self, config, value, created=None, comp_time=None):

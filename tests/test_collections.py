@@ -120,6 +120,31 @@ def test_collection_deps(env):
     assert e.value == 150
 
 
+def test_collection_deps_complex(env):
+    runtime = env.test_runtime()
+    runtime.register_executor(LocalExecutor(n_processes=1))
+
+    def builder1(config):
+        return config * 10
+
+    def builder2(config, deps):
+        return sum(e.value for e in deps[0].values()) + deps[1]
+
+    def make_deps(config):
+        return [{
+            "a": col1.ref(1),
+            "b": col1.ref(1),
+            "c": col1.ref(3),
+            "d": col1.ref(4)
+        }, 5]
+
+    col1 = runtime.register_collection("col1", builder1)
+    col2 = runtime.register_collection("col2", builder2, make_deps)
+
+    e = col2.compute(1)
+    assert e.value == 95
+
+
 def test_collection_double_ref(env):
     runtime = env.test_runtime()
     runtime.register_executor(LocalExecutor())

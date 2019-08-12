@@ -1,14 +1,12 @@
-
-import cloudpickle
-import threading
-import logging
-import tqdm
 import collections
+import logging
+import threading
 import time
 
+from orco.ref import collect_refs
+from .collection import Collection
 from .db import DB
-from .collection import Collection, Ref
-from .executor import Executor, LocalExecutor, Task
+from .executor import Executor, Task
 from .utils import format_time
 
 logger = logging.getLogger(__name__)
@@ -37,7 +35,8 @@ class Runtime:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.stop()
+        if not self.stopped:
+            self.stop()
 
     def stop(self):
         self._check_stopped()
@@ -125,7 +124,7 @@ class Runtime:
             if task is not None:
                 return task
             collection = ref.collection
-            state = self.db.get_entry_state(collection.name, ref_key[1])
+            state = self.db.get_entry_state(collection.name, ref_key.key)
             if state == "finished":
                 exists.add(ref_key)
                 return ref
@@ -134,12 +133,12 @@ class Runtime:
                 return None
             if state is None and collection.dep_fn:
                 deps = collection.dep_fn(ref.config)
-                for r in deps:
-                    assert isinstance(r, Ref)
-                inputs = [make_task(r) for r in deps]
+                ref_set = set()
+                collect_refs(deps, ref_set)
+                inputs = [make_task(r) for r in ref_set]
                 if any(inp is None for inp in inputs):
                     return None
-                for r in deps:
+                for r in ref_set:
                     global_deps.add((r, ref))
             else:
                 inputs = None

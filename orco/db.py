@@ -346,7 +346,7 @@ DELETE FROM entries
 
     def unannounce_entries(self, executor_id, ref_keys):
         def _helper():
-            data = [(r[0], r[1], executor_id) for r in ref_keys]
+            data = [(r.collection, r.key, executor_id) for r in ref_keys]
             with self.conn:
                 c = self.conn.cursor()
                 self._cleanup_lost_entries(c)
