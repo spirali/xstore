@@ -60,22 +60,6 @@ def make_key(config):
 
 
 RefKey = namedtuple("RefKey", ("collection_name", "key"))
-"""
-class RefKey:
-    __slots__ = ["collection_name", "key"]
-
-    def __init__(self, collection_name, key):
-        self.collection_name = collection_name
-        self.key = key
-
-    def __eq__(self, other):
-        if not isinstance(other, RefKey):
-            return False
-        return (self.collection, self.key) == (other.collection, other.key)
-
-    def __hash__(self):
-        return hash((self.collection, self.key))
-"""
 
 
 def collect_refs(obj):

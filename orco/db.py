@@ -422,7 +422,6 @@ DELETE FROM entries
             .format(self.DEAD_EXECUTOR_QUERY))
 
     def _unfold_report(self, report):
-        #cursor.execute("INSERT INTO report VALUES (DATETIME('now'), ?, ?, ?, ?)",
         return (report.report_type, report.executor_id, report.collection_name, report.message,
                 pickle.dumps(report.config) if report.config is not None else None)
 

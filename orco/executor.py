@@ -11,6 +11,7 @@ import cloudpickle
 import tqdm
 import traceback
 
+from orco.metadata import parse_metadata
 from orco.ref import resolve_ref_keys, ref_to_refkey, RefKey, collect_ref_keys
 from .db import DB
 from .task import Task
@@ -23,7 +24,43 @@ class TaskFailException(Exception):
     pass
 
 
-TaskErrorResult = namedtuple("TaskErrorResult", ["exception_str", "ref_key", "traceback"])
+class TaskFailure:
+
+    def __init__(self, ref_key):
+        self.ref_key = ref_key
+
+    def message(self):
+        raise NotImplementedError()
+
+    def report_type(self):
+        raise NotImplementedError()
+
+
+class TaskError(TaskFailure):
+
+    def __init__(self, ref_key, exception_str, traceback):
+        super().__init__(ref_key)
+        self.exception_str = exception_str
+        self.traceback = traceback
+
+    def message(self):
+        return "Task failed: {}\n{}".format(self.exception_str, self.traceback)
+
+    def report_type(self):
+        return "error"
+
+
+class TaskTimeout(TaskFailure):
+
+    def __init__(self, ref_key, timeout):
+        super().__init__(ref_key)
+        self.timeout = timeout
+
+    def message(self):
+        return "Task timeouted after {} seconds".format(self.timeout)
+
+    def report_type(self):
+        return "timeout"
 
 
 class Executor:
@@ -148,8 +185,8 @@ class LocalExecutor(Executor):
                 collection = self.runtime._get_collection(task.ref)
                 pickled_fns = cloudpickle.dumps((collection.build_fn, collection.make_raw_entry))
                 pickle_cache[ref.collection_name] = pickled_fns
-            return pool.submit(_run_task, self.id, db.path, pickled_fns, task.ref.ref_key(),
-                               task.ref.config, ref_to_refkey(task.dep_value))
+            return pool.submit(_run_task, db.path, pickled_fns, task.ref.ref_key(), task.ref.config,
+                               ref_to_refkey(task.dep_value))
 
         self.stats = {"n_tasks": len(all_tasks), "n_completed": 0}
 
@@ -180,22 +217,24 @@ class LocalExecutor(Executor):
                     self.stats["n_completed"] += 1
                     progressbar.update()
                     result = f.result()
-                    if isinstance(result, TaskErrorResult):
+                    if isinstance(result, TaskFailure):
                         ref_key = result.ref_key
                         config = db.get_config(ref_key[0], ref_key[1])
-                        message = "Task failed: {}\n{}".format(result.exception_str,
-                                                               result.traceback)
+                        message = result.message()
                         report = Report(
-                            "error", self.id, message, collection_name=ref_key[0], config=config)
+                            result.report_type(),
+                            self.id,
+                            message,
+                            collection_name=ref_key[0],
+                            config=config)
                         if continue_on_error:
                             errors.append(ref_key)
                             pending_reports.append(report)
                         else:
                             db.insert_report(report)
-                            message = "Task failed {}/{}:{}\n{}".format(
-                                result.ref_key[0], repr(result.ref_key[1]), result.exception_str,
-                                result.traceback)
-                            raise TaskFailException(message)
+
+                            raise TaskFailException("{} ({}/{})".format(
+                                message, result.ref_key[0], repr(result.ref_key[1])))
                         continue
                     logger.debug("Task finished: %s/%s", result.collection_name, result.key)
                     unprocessed.append(result)
@@ -217,18 +256,35 @@ class LocalExecutor(Executor):
 _per_process_db = None
 
 
-def _run_task(executor_id, db_path, fns, ref_key, config, dep_value):
+def _run_task(db_path, fns, ref_key, config, dep_value):
     global _per_process_db
     try:
         if _per_process_db is None:
             _per_process_db = DB(db_path, threading=False)
         build_fn, finalize_fn = cloudpickle.loads(fns)
-        start_time = time.time()
-        deps = collect_ref_keys(dep_value)
-        ref_map = {ref: _per_process_db.get_entry(ref.collection_name, ref.key) for ref in deps}
-        dep_value = resolve_ref_keys(dep_value, ref_map)
-        value = build_fn(config, dep_value)
-        end_time = time.time()
-        return finalize_fn(ref_key.collection_name, ref_key.key, None, value, end_time - start_time)
+
+        result = []
+
+        def run():
+            start_time = time.time()
+            deps = collect_ref_keys(dep_value)
+            ref_map = {ref: _per_process_db.get_entry(ref.collection_name, ref.key) for ref in deps}
+            value = build_fn(config, resolve_ref_keys(dep_value, ref_map))
+            end_time = time.time()
+            result.append(
+                finalize_fn(ref_key.collection_name, ref_key.key, None, value,
+                            end_time - start_time))
+
+        metadata = parse_metadata(config)
+        if metadata.timeout:
+            thread = threading.Thread(target=run)
+            thread.daemon = True
+            thread.start()
+            thread.join(metadata.timeout)
+            if thread.is_alive():
+                return TaskTimeout(ref_key, metadata.timeout)
+        else:
+            run()
+        return result[0]
     except Exception as exception:
-        return TaskErrorResult(str(exception), ref_key, traceback.format_exc())
+        return TaskError(ref_key, str(exception), traceback.format_exc())

@@ -95,6 +95,31 @@ def test_executor_error(env):
     print(result)
 
 
+def test_executor_timeout(env):
+    runtime = env.test_runtime()
+    executor = LocalExecutor(heartbeat_interval=1, n_processes=2)
+    runtime.register_executor(executor)
+
+    def compute(c, d):
+        time.sleep(c["time"])
+        return c["time"]
+
+    col0 = runtime.register_collection("col0", compute)
+
+    config0 = {"time": 1, "_metadata": {"timeout": 0.2}}
+    with pytest.raises(TaskFailException, match=".*timeout.*"):
+        assert runtime.compute(col0.ref(config0))
+
+    reports = runtime.get_reports()
+    assert len(reports) == 2
+    assert reports[0].report_type == "timeout"
+    assert reports[0].collection_name == "col0"
+    assert reports[0].config == config0
+    assert "timeout" in reports[0].message
+
+    assert runtime.compute(col0.ref({"time": 1})).value == 1
+
+
 def test_executor_conflict(env, tmpdir):
 
     def compute_0(c, d):
