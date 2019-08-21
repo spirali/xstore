@@ -129,7 +129,8 @@ def test_executor_conflict(env, tmpdir):
     t1 = threading.Thread(target=comp1, args=(runtime1, col0_0, col1_0))
     t1.start()
     time.sleep(0.5)
-    runtime2.get_entry_state(CollectionRef("col0").ref(0)) == "announced"
+    assert runtime2.get_entry_state(CollectionRef("col0").ref(0)) == "announced"
+
     t2 = threading.Thread(target=comp2, args=(runtime2, col0_1, col1_1))
     t2.start()
     t1.join()
