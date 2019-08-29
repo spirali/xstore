@@ -2,6 +2,7 @@ import React from 'react';
 import ReactTable, {CellInfo} from 'react-table';
 import {fetchJsonFromServer} from './service';
 import {ErrorContainer} from './Error';
+import {ConfigDetail} from "./ConfigDetail";
 
 interface Props {
     err: ErrorContainer
@@ -54,10 +55,18 @@ class Reports extends React.Component<Props, State> {
     _cellConfig = (cellInfo : CellInfo) => {
         let config = cellInfo.value;
         if (config) {
-            return JSON.stringify(config);
+            let content = JSON.stringify(config);
+            return <div title={content}>{content}</div>;
         } else {
             return ""
         }
+    };
+
+    renderSubcomponent = (row: {original: {message: string, config: string}}) => {
+        return ConfigDetail(row.original.config, [{
+            header: "Message",
+            value: row.original.message
+        }]);
     };
 
     render() {
@@ -76,7 +85,11 @@ class Reports extends React.Component<Props, State> {
         {
             id: "Message",
             Header: "Message",
-            accessor: "message"
+            accessor: "message",
+            Cell: (cellInfo : CellInfo) =>
+                <div title={cellInfo.value}>
+                    {cellInfo.value}
+                </div>
         },
         {
             id: "Executor",
@@ -100,8 +113,12 @@ class Reports extends React.Component<Props, State> {
 
         return (
             <div>
-            <h1>Collections</h1>
-            <ReactTable data={this.state.data} loading={this.state.loading} columns={columns}/>
+                <h1>Reports</h1>
+                <ReactTable
+                    data={this.state.data}
+                    loading={this.state.loading}
+                    columns={columns}
+                    SubComponent={this.renderSubcomponent} />
             </div>
         );
     }

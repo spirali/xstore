@@ -21,3 +21,13 @@
 .report-type-error {
   color: red;
 }
+
+.detail-header {
+  text-align: left;
+  padding: 5px;
+  background-color: #BBBBBB;
+}
+.detail-value {
+  text-align: left;
+  padding: 5px;
+}

@@ -4,6 +4,7 @@ import {fetchJsonFromServer} from './service';
 import {FaHourglassEnd} from 'react-icons/fa';
 import {formatSize, formatTime} from './utils';
 import {ErrorContainer} from './Error';
+import {ConfigDetail} from "./ConfigDetail";
 
 interface Props {
     match: any,
@@ -48,7 +49,7 @@ class Collection extends React.Component<Props, State> {
         } else {
             return <FaHourglassEnd/>
         }
-    }
+    };
 
     _formatSize = (entry : EntrySummary) => formatSize(entry.size);
     _formatTime = (entry: EntrySummary) => formatTime(entry.comp_time);
@@ -130,8 +131,7 @@ class Collection extends React.Component<Props, State> {
                         }
                     ]
                     },
-                ]
-                console.log(cfgColumns);
+                ];
                 this.setState({
                     data: data,
                     columns: columns,
@@ -148,11 +148,22 @@ class Collection extends React.Component<Props, State> {
         return this.props.match.params.name;
     }
 
+    renderSubcomponent = (row: {original: {config: string, value_repr: string}}) => {
+        return ConfigDetail(row.original.config, [{
+            header: "Value",
+            value: row.original.value_repr
+        }]);
+    };
+
     render() {
         return (
             <div>
-            <h1>Collection '{this.name}'</h1>
-            {<ReactTable data={this.state.data} loading={this.state.loading} columns={this.state.columns}/>}
+                <h1>Collection '{this.name}'</h1>
+                <ReactTable
+                    data={this.state.data}
+                    loading={this.state.loading}
+                    columns={this.state.columns}
+                    SubComponent={this.renderSubcomponent} />
             </div>
         );
     }
