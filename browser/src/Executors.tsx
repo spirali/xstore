@@ -1,14 +1,8 @@
 import React from 'react';
-import ReactTable, { CellInfo, Column } from 'react-table';
-import { fetchFromServer, fetchJsonFromServer } from './service';
-import { formatSize } from './utils';
-import {
-    Link
-} from 'react-router-dom';
-import { ErrorContainer } from './Error';
-import { access } from 'fs';
-import { type } from 'os';
-import { Progress } from 'reactstrap';
+import ReactTable, {CellInfo} from 'react-table';
+import {fetchJsonFromServer} from './service';
+import {ErrorContainer} from './Error';
+import {Progress} from 'reactstrap';
 
 interface Props {
     match: any,
@@ -59,13 +53,12 @@ class Executors extends React.Component<Props, State> {
 
     _cellStats = (cellInfo: CellInfo) => {
         let v = cellInfo.value;
-        console.log(v);
         if (v && v.n_tasks > 0) {
             return (<Progress value={v.n_completed} max={v.n_tasks}>{v.n_completed}/{v.n_tasks}</Progress>);
         } else {
             return "";
         }
-    }
+    };
 
     render() {
         const columns = [
@@ -74,6 +67,11 @@ class Executors extends React.Component<Props, State> {
                 "Header": "Status",
                 "accessor": "status",
                 "Cell": this._cellStatus,
+                sortMethod: (a: string, b: string) => {
+                    // Sort priority decreases from left to right
+                    let values = ["running", "stopped", "lost"];
+                    return values.indexOf(a) < values.indexOf(b) ? 1 : -1;
+                },
                 maxWidth: 200
             },
             {
@@ -95,11 +93,21 @@ class Executors extends React.Component<Props, State> {
                 "Cell": this._cellStats
             },
 
-        ]
+        ];
         return (
             <div>
             <h1>Executors</h1>
-            {<ReactTable data={this.state.data} loading={this.state.loading} columns={columns}/>}
+            <ReactTable
+                data={this.state.data}
+                loading={this.state.loading}
+                columns={columns}
+                defaultSorted={[{
+                    id: "status",
+                    desc: true
+                }, {
+                    id: "id",
+                    desc: true
+                }]} />
             </div>
         );
     }

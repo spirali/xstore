@@ -1,14 +1,9 @@
 import React from 'react';
-import ReactTable, { CellInfo, Column } from 'react-table';
-import { fetchJsonFromServer } from './service';
-import { FaHourglassEnd } from 'react-icons/fa';
-import { formatSize, formatTime } from './utils';
-import {
-    Link
-} from 'react-router-dom';
-import { ErrorContainer } from './Error';
-import { access } from 'fs';
-import { type } from 'os';
+import ReactTable, {CellInfo, Column} from 'react-table';
+import {fetchJsonFromServer} from './service';
+import {FaHourglassEnd} from 'react-icons/fa';
+import {formatSize, formatTime} from './utils';
+import {ErrorContainer} from './Error';
 
 interface Props {
     match: any,

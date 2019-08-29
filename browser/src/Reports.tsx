@@ -1,11 +1,7 @@
 import React from 'react';
-import ReactTable, { CellInfo } from 'react-table';
-import { fetchFromServer, fetchJsonFromServer } from './service';
-import { formatSize } from './utils';
-import {
-    Link
-} from 'react-router-dom';
-import { ErrorContainer } from './Error';
+import ReactTable, {CellInfo} from 'react-table';
+import {fetchJsonFromServer} from './service';
+import {ErrorContainer} from './Error';
 
 interface Props {
     err: ErrorContainer

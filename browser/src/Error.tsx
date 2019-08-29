@@ -1,8 +1,6 @@
-
 import React from 'react';
-import { render } from 'react-dom';
-import { Provider, Subscribe, Container } from 'unstated';
-import { Alert } from "reactstrap";
+import {Container} from 'unstated';
+import {Alert} from "reactstrap";
 
 
 type ErrorState = {

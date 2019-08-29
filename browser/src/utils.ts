@@ -1,5 +1,3 @@
-
-
 export function formatSize(value : number): string
 {
     if (value < 512) {
@@ -14,7 +12,6 @@ export function formatSize(value : number): string
     return (value / 1024 / 1024 / 1024).toFixed(2) + "GiB"
 }
 
-
 export function formatTime(value : number): string
 {
     if (value < 0.8) {
@@ -28,6 +25,5 @@ export function formatTime(value : number): string
     }
     return (value / 3600).toFixed(1) + "h";
 }
-
 
 export default formatSize;

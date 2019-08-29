@@ -1,5 +1,3 @@
-
-
 let SERVER_URL = "/rest/";
 
 if (window.location.href.startsWith("http://localhost:3000")) {
