@@ -289,14 +289,16 @@ def test():
     s.commit()
     os.system("ls -la testdb.sqlite.files")
 
-    rf2 = s.query(ResultFile).filter(ResultFile.name == "a").first()
+    # make sure the record is reloaded
+    rf2 = s.query(ResultFile).filter(ResultFile.name == "a", ResultFile.job==jo).first()
     print("data len ", len(rf2.data))
     rf2.data = None
     s.add(rf2)
     s.commit()
     os.system("ls -la testdb.sqlite.files")
 
-    rf3 = s.query(ResultFile).filter(ResultFile.name == "a").first()
+    # make sure the record is reloaded
+    rf3 = s.query(ResultFile).filter(ResultFile.name == "a", ResultFile.job==jo).first()
     print("data", rf3.data)
 
     rf4 = ResultFile(name="b", data=b"X" * 6000, job=jo)
@@ -304,7 +306,8 @@ def test():
     s.commit()
     os.system("ls -la testdb.sqlite.files")
 
-    rf5 = s.query(ResultFile).filter(ResultFile.name == "b").first()
+    # make sure the record is reloaded
+    rf5 = s.query(ResultFile).filter(ResultFile.name == "b", ResultFile.job==jo).first()
     s.delete(rf5)
     s.commit()
     os.system("ls -la testdb.sqlite.files")
