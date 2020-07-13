@@ -7,3 +7,4 @@ pandas
 tqdm
 waitress
 capturer
+json5
