@@ -27,6 +27,7 @@ class Computation:
         if self.fn_argspec.varkw:
             kwargs = a.pop(self.fn_argspec.varkw, {})
             a.update(kwargs)
+
         return Ref(self.name, version, a, replica)
 
     def replicas(self, replicas: int | Iterable[int], *args, **kwargs):

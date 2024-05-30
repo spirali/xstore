@@ -65,6 +65,9 @@ class Runtime:
     def read_refs(self, name: str) -> list[Entry]:
         return self.db.read_refs(name)
 
+    def read_all_refs(self) -> list[Entry]:
+        return self.db.read_all_refs()
+
     def get_results(self, obj):
         refs = collect_refs(obj)
         results = {}
@@ -79,9 +82,14 @@ class Runtime:
                 results[ref] = result
             elif status == AnnounceResult.COMPUTE_HERE:
                 try:
+                    if ref.ephemeral_config:
+                        config = ref.config.copy()
+                        config.update(ref.ephemeral_config)
+                    else:
+                        config = ref.config
                     running_task = RunningTask()
                     token = _CURRENT_RUNNING_TASK.set(running_task)
-                    result = _REGISTERED_COMPUTATION[ref.name].fn(**ref.config)
+                    result = _REGISTERED_COMPUTATION[ref.name].fn(**config)
                     _CURRENT_RUNNING_TASK.reset(token)
                 except Exception as e:
                     self.db.cancel_entry(entry_id)

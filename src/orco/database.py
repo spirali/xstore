@@ -79,14 +79,13 @@ class Database:
     def read_entry(self, ref) -> Entry:
         c = self.entries.c
         with self.engine.connect() as conn:
-            select = (
-                sa.select(c.id, c.result, c.finished_date)
-            )
+            select = sa.select(c.id, c.result, c.finished_date)
             if ref.entry_id is None:
-                select = (select.where(c.name == ref.name)
-                               .where(c.version == ref.version)
-                               .where(c.config_key == ref.config_key)
-                               .where(c.replica == ref.replica)
+                select = (
+                    select.where(c.name == ref.name)
+                    .where(c.version == ref.version)
+                    .where(c.config_key == ref.config_key)
+                    .where(c.replica == ref.replica)
                 )
             else:
                 select = select.where(c.id == ref.entry_id)
@@ -110,8 +109,30 @@ class Database:
                     replica,
                     entry_id=entry_id,
                     config_key=config_key,
+                    ephemeral_check=False,
                 )
                 for entry_id, version, config, config_key, replica in conn.execute(
+                    select
+                ).all()
+            ]
+
+    def read_all_refs(self):
+        c = self.entries.c
+        with self.engine.connect() as conn:
+            select = sa.select(
+                c.id, c.name, c.version, c.config, c.config_key, c.replica
+            )
+            return [
+                Ref(
+                    name,
+                    version,
+                    config,
+                    replica,
+                    entry_id=entry_id,
+                    config_key=config_key,
+                    ephemeral_check=False,
+                )
+                for entry_id, name, version, config, config_key, replica in conn.execute(
                     select
                 ).all()
             ]
@@ -134,6 +155,10 @@ class Database:
 
     def get_or_announce_entry(self, ref) -> (AnnounceResult, EntryId, Any):
         c = self.entries.c
+        config = {
+            key: value for key, value in ref.config.items() if not key.startswith("__")
+        }
+
         with self.engine.connect() as conn:
             try:
                 stmt = (
@@ -141,7 +166,7 @@ class Database:
                     .values(
                         name=ref.name,
                         version=ref.version,
-                        config=ref.config,
+                        config=config,
                         config_key=ref.config_key,
                         replica=ref.replica,
                     )

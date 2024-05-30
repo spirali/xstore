@@ -11,13 +11,26 @@ class Ref:
         replica: int,
         entry_id: int | None = None,
         config_key: str | None = None,
+        ephemeral_check: bool = True,
     ):
         assert isinstance(name, str)
         assert isinstance(config, dict)
         assert isinstance(version, int)
         assert isinstance(replica, int)
         self.name = name
-        self.config = config
+
+        ephemeral_config = {}
+        if ephemeral_check:
+            stable_config = {}
+            for key, value in config.items():
+                if key.startswith("__"):
+                    ephemeral_config[key] = value
+                else:
+                    stable_config[key] = value
+        else:
+            stable_config = config
+        self.config = stable_config
+        self.ephemeral_config = ephemeral_config
         self.version = version
         self.replica = replica
         if config_key is None:
@@ -98,8 +111,8 @@ def _make_key_helper(obj, stream):
                 raise Exception(
                     "Invalid key in config: '{}', type: {}".format(repr(key), type(key))
                 )
-            if key.startswith("__"):
-                continue
+            # if key.startswith("__"):
+            #     continue
             stream.append(repr(key))
             stream.append(":")
             _make_key_helper(value, stream)

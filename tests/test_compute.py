@@ -110,3 +110,17 @@ def test_compute_replicas(runtime):
         assert runtime.get_results(my_fn.replicas(4)) == [4, 1, 2, 3]
 
     assert values[0] == 4
+
+
+def test_compute_ignored_args(runtime):
+    @computation()
+    def my_fn(a, __x, b):
+        return a + b + __x
+
+    with runtime:
+        assert my_fn(10, 1, 20) == 31
+        assert my_fn(10, 2, 20) == 31
+        assert runtime.read_entries(my_fn.ref(10, 1, 20)).ref.config == {
+            "a": 10,
+            "b": 20,
+        }
