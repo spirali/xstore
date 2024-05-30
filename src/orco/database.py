@@ -3,7 +3,7 @@ from typing import Any, Iterable
 import sqlalchemy as sa
 from datetime import datetime
 
-from .entry import AnnounceResult, EntryId
+from .entry import AnnounceResult, EntryId, Entry
 
 
 def _set_sqlite_pragma(dbapi_connection, _connection_record):
@@ -74,6 +74,22 @@ class Database:
 
         self.metadata = metadata
         self.engine = engine
+
+    def get_entry(self, ref) -> Entry:
+        c = self.entries.c
+        with self.engine.connect() as conn:
+            select = (
+                sa.select(c.id, c.result, c.finished_date)
+                .where(c.name == ref.name)
+                .where(c.version == ref.version)
+                .where(c.config_key == ref.config_key)
+                .where(c.replica == ref.replica)
+            )
+            r = conn.execute(select).one_or_none()
+            if r is not None:
+                return Entry(entry_id=r[0], ref=ref, result=r[1], finished_date=r[2])
+            else:
+                return None
 
     def get_result(self, ref) -> Any:
         c = self.entries.c

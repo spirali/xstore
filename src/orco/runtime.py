@@ -44,7 +44,16 @@ class Runtime:
         self._token = None
         self.lock = Lock()
 
-    def get(self, obj):
+    def get_entries(self, obj):
+        refs = collect_refs(obj)
+        results = {}
+        for ref in refs:
+            if ref in results:
+                continue
+            results[ref] = self.db.get_entry(ref)
+        return replace_refs(obj, results)
+
+    def get_results(self, obj):
         refs = collect_refs(obj)
         results = {}
         for ref in refs:
