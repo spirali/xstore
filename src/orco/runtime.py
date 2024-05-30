@@ -4,7 +4,7 @@ from threading import Lock
 from dataclasses import dataclass, field
 
 from .database import Database
-from .entry import AnnounceResult, EntryId
+from .entry import AnnounceResult, EntryId, Entry
 from .ref import collect_refs, replace_refs
 from .globals import _REGISTERED_COMPUTATION
 
@@ -44,25 +44,28 @@ class Runtime:
         self._token = None
         self.lock = Lock()
 
-    def get_entries(self, obj):
+    def read_entries(self, obj):
         refs = collect_refs(obj)
         results = {}
         for ref in refs:
             if ref in results:
                 continue
-            results[ref] = self.db.get_entry(ref)
+            results[ref] = self.db.read_entry(ref)
         return replace_refs(obj, results)
+
+    def read_results(self, obj):
+        refs = collect_refs(obj)
+        results = {}
+        for ref in refs:
+            if ref in results:
+                continue
+            results[ref] = self.db.read_result(ref)
+        return replace_refs(obj, results)
+
+    def read_refs(self, name: str) -> list[Entry]:
+        return self.db.read_refs(name)
 
     def get_results(self, obj):
-        refs = collect_refs(obj)
-        results = {}
-        for ref in refs:
-            if ref in results:
-                continue
-            results[ref] = self.db.get_result(ref)
-        return replace_refs(obj, results)
-
-    def compute(self, obj):
         refs = collect_refs(obj)
         results = {}
         current_running_task = _CURRENT_RUNNING_TASK.get()
@@ -103,3 +106,11 @@ def get_current_runtime() -> Runtime:
     if runtime is None:
         raise Exception("No running runtime")
     return runtime
+
+
+def get_results(obj):
+    return get_current_runtime().get_results(obj)
+
+
+def read_results(obj):
+    return get_current_runtime().read_results(obj)

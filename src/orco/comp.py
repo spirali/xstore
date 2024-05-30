@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Callable, Iterable
 import inspect
 
 from .ref import Ref
@@ -27,12 +27,17 @@ class Computation:
         if self.fn_argspec.varkw:
             kwargs = a.pop(self.fn_argspec.varkw, {})
             a.update(kwargs)
-        return Ref(self.name, a, version, replica)
+        return Ref(self.name, version, a, replica)
+
+    def replicas(self, replicas: int | Iterable[int], *args, **kwargs):
+        if isinstance(replicas, int):
+            replicas = range(replicas)
+        return [self.ref(replica=n, *args, **kwargs) for n in replicas]
 
     def __call__(self, *args, **kwargs):
         runtime = get_current_runtime()
         ref = self.ref(*args, **kwargs)
-        return runtime.compute(ref)
+        return runtime.get_results(ref)
 
 
 def computation(*, name: str = None, version: int = 0):

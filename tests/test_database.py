@@ -7,7 +7,7 @@ def test_db_announce():
     db = Database("sqlite:///:memory:")
     db.init()
 
-    ref = Ref("test", {"x": 10}, 1, 0)
+    ref = Ref("test", 1, {"x": 10}, 0)
 
     r = db.get_or_announce_entry(ref)
     assert len(r) == 3
@@ -29,7 +29,7 @@ def test_db_announce():
     r2 = db.get_or_announce_entry(ref)
     assert r2 == (AnnounceResult.FINISHED, r[1], "Hello")
 
-    ref2 = Ref("test", {"x": 11}, 1, 0)
+    ref2 = Ref("test", 1, {"x": 11}, 0)
     t = db.get_or_announce_entry(ref2)
     assert t[0] == AnnounceResult.COMPUTE_HERE
     assert t[2] is None

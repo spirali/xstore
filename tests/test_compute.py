@@ -62,14 +62,17 @@ def test_compute_deps(runtime):
         return 10
 
     with runtime:
-        assert runtime.get_results(my_fn0.ref()) is None
+        assert runtime.read_results(my_fn0.ref()) is None
         assert my_fn2(1, 3) == (10, 30)
-        assert runtime.get_results([my_fn1.ref(1), my_fn1.ref(2), my_fn1.ref(3)]) == [
+        assert runtime.read_results([my_fn1.ref(1), my_fn1.ref(2), my_fn1.ref(3)]) == [
             10,
             None,
             30,
         ]
-        assert runtime.get_results(my_fn0.ref()) == 10
+        assert runtime.read_results(my_fn0.ref()) == 10
+
+        assert set(runtime.read_refs("my_fn1")) == {my_fn1.ref(1), my_fn1.ref(3)}
+        assert runtime.read_refs("my_fn2") == [my_fn2.ref(1, 3)]
 
 
 def test_compute_none_result(runtime):
@@ -104,4 +107,6 @@ def test_compute_replicas(runtime):
         assert my_fn(replica=1) == 1
         assert my_fn(replica=3) == 3
 
-    assert values[0] == 3
+        assert runtime.get_results(my_fn.replicas(4)) == [4, 1, 2, 3]
+
+    assert values[0] == 4

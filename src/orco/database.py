@@ -3,6 +3,7 @@ from typing import Any, Iterable
 import sqlalchemy as sa
 from datetime import datetime
 
+from .ref import Ref
 from .entry import AnnounceResult, EntryId, Entry
 
 
@@ -75,23 +76,47 @@ class Database:
         self.metadata = metadata
         self.engine = engine
 
-    def get_entry(self, ref) -> Entry:
+    def read_entry(self, ref) -> Entry:
         c = self.entries.c
         with self.engine.connect() as conn:
             select = (
                 sa.select(c.id, c.result, c.finished_date)
-                .where(c.name == ref.name)
-                .where(c.version == ref.version)
-                .where(c.config_key == ref.config_key)
-                .where(c.replica == ref.replica)
             )
+            if ref.entry_id is None:
+                select = (select.where(c.name == ref.name)
+                               .where(c.version == ref.version)
+                               .where(c.config_key == ref.config_key)
+                               .where(c.replica == ref.replica)
+                )
+            else:
+                select = select.where(c.id == ref.entry_id)
             r = conn.execute(select).one_or_none()
             if r is not None:
                 return Entry(entry_id=r[0], ref=ref, result=r[1], finished_date=r[2])
             else:
                 return None
 
-    def get_result(self, ref) -> Any:
+    def read_refs(self, name):
+        c = self.entries.c
+        with self.engine.connect() as conn:
+            select = sa.select(
+                c.id, c.version, c.config, c.config_key, c.replica
+            ).where(c.name == name)
+            return [
+                Ref(
+                    name,
+                    version,
+                    config,
+                    replica,
+                    entry_id=entry_id,
+                    config_key=config_key,
+                )
+                for entry_id, version, config, config_key, replica in conn.execute(
+                    select
+                ).all()
+            ]
+
+    def read_result(self, ref) -> Any:
         c = self.entries.c
         with self.engine.connect() as conn:
             select = (

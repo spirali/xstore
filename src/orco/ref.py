@@ -3,12 +3,28 @@ from typing import Any
 
 
 class Ref:
-    def __init__(self, name: str, config: dict, version: int, replica: int):
+    def __init__(
+        self,
+        name: str,
+        version: int,
+        config: dict,
+        replica: int,
+        entry_id: int | None = None,
+        config_key: str | None = None,
+    ):
+        assert isinstance(name, str)
+        assert isinstance(config, dict)
+        assert isinstance(version, int)
+        assert isinstance(replica, int)
         self.name = name
         self.config = config
         self.version = version
         self.replica = replica
-        self.config_key = make_key(self.config)
+        if config_key is None:
+            self.config_key = make_key(self.config)
+        else:
+            self.config_key = config_key
+        self.entry_id = entry_id
 
     @property
     def tuple_key(self) -> tuple:
@@ -19,11 +35,13 @@ class Ref:
         return f"<Ref {self.name}({a}) v={self.version} r={self.replica}>"
 
     def __eq__(self, other):
+        if not isinstance(other, Ref):
+            return False
         return (
             self.config_key == other.config_key
             and self.name == other.name
             and self.version == other.version
-            and self.replica == other.config_key
+            and self.replica == other.replica
         )
 
     def __hash__(self):
