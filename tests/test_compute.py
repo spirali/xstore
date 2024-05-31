@@ -120,7 +120,23 @@ def test_compute_ignored_args(runtime):
     with runtime:
         assert my_fn(10, 1, 20) == 31
         assert my_fn(10, 2, 20) == 31
-        assert runtime.read_entries(my_fn.ref(10, 1, 20)).ref.config == {
+        assert runtime.read_entries(
+            my_fn.ref(10, 1, 20, version=101, replica=2)
+        ).ref.config == {
             "a": 10,
             "b": 20,
         }
+
+
+def test_compute_ref_as_input(runtime):
+    @computation()
+    def my_fn1(ref):
+        return runtime.get_results(ref) * 10
+
+    @computation()
+    def my_fn2(x, y):
+        return x + y
+
+    with runtime:
+        r = my_fn2.ref(x=10, y=20)
+        assert my_fn1(r) == 300

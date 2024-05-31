@@ -17,7 +17,6 @@ class Ref:
         assert isinstance(config, dict)
         assert isinstance(version, int)
         assert isinstance(replica, int)
-        self.name = name
 
         ephemeral_config = {}
         if ephemeral_check:
@@ -29,6 +28,8 @@ class Ref:
                     stable_config[key] = value
         else:
             stable_config = config
+
+        self.name = name
         self.config = stable_config
         self.ephemeral_config = ephemeral_config
         self.version = version
@@ -38,6 +39,9 @@ class Ref:
         else:
             self.config_key = config_key
         self.entry_id = entry_id
+
+    def __orco_key__(self):
+        return f"{self.name},{self.version},{self.config},{self.replica}"
 
     @property
     def tuple_key(self) -> tuple:
@@ -90,13 +94,17 @@ def replace_refs(obj, refs: dict[Ref, Any]):
     return obj
 
 
-def _make_key_helper(obj, stream):
-    if (
+def _is_basic_type(obj) -> bool:
+    return (
         isinstance(obj, str)
         or isinstance(obj, int)
         or isinstance(obj, float)
         or obj is None
-    ):
+    )
+
+
+def _make_key_helper(obj, stream):
+    if _is_basic_type(obj):
         stream.append(repr(obj))
     elif isinstance(obj, list) or isinstance(obj, tuple):
         stream.append("[")
@@ -106,18 +114,25 @@ def _make_key_helper(obj, stream):
         stream.append("]")
     elif isinstance(obj, dict):
         stream.append("{")
-        for key, value in sorted(obj.items()):
-            if not isinstance(key, str):
-                raise Exception(
-                    "Invalid key in config: '{}', type: {}".format(repr(key), type(key))
-                )
-            # if key.startswith("__"):
-            #     continue
-            stream.append(repr(key))
+        items = []
+        for key in obj:
+            if _is_basic_type(key):
+                new_key = repr(key)
+            else:
+                new_key = "~" + make_key(key)
+            items.append((new_key, obj[key]))
+        for key, value in sorted(items):
+            stream.append(key)
             stream.append(":")
             _make_key_helper(value, stream)
             stream.append(",")
         stream.append("}")
+    elif hasattr(obj, "__orco_key__"):
+        stream.append("<")
+        stream.append(obj.__class__.__name__)
+        stream.append(" ")
+        stream.append(obj.__orco_key__())
+        stream.append(">")
     else:
         raise Exception(
             "Invalid item in config: '{}', type: {}".format(repr(obj), type(obj))
