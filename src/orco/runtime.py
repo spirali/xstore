@@ -1,11 +1,11 @@
 from contextvars import ContextVar
-from typing import Union
+from typing import Union, Any
 from threading import Lock
 from dataclasses import dataclass, field
 
 from .database import Database
 from .entry import AnnounceResult, EntryId, Entry
-from .ref import collect_refs, replace_refs
+from .ref import collect_refs, replace_refs, Ref
 from .globals import _REGISTERED_COMPUTATION
 
 _GLOBAL_RUNTIME: ContextVar[Union[None, "Runtime"]] = ContextVar(
@@ -68,8 +68,7 @@ class Runtime:
     def read_all_refs(self) -> list[Entry]:
         return self.db.read_all_refs()
 
-    def get_results(self, obj):
-        refs = collect_refs(obj)
+    def _process_refs(self, refs) -> dict[Ref, Any]:
         results = {}
         current_running_task = _CURRENT_RUNNING_TASK.get()
         for ref in refs:
@@ -79,7 +78,7 @@ class Runtime:
             if current_running_task is not None:
                 current_running_task.deps.add(entry_id)
             if status == AnnounceResult.FINISHED:
-                results[ref] = result
+                results[ref] = Entry(entry_id, ref, result)
             elif status == AnnounceResult.COMPUTE_HERE:
                 try:
                     if ref.ephemeral_config:
@@ -95,9 +94,18 @@ class Runtime:
                     self.db.cancel_entry(entry_id)
                     raise e
                 self.db.finish_entry(entry_id, result, {}, running_task.deps)
-                results[ref] = result
+                results[ref] = Entry(entry_id, ref, result)
             elif status == AnnounceResult.COMPUTING_ELSEWHERE:
                 raise Exception(f"Computation {ref} is computed in another process")
+        return results
+
+    def get_entries(self, obj):
+        refs = collect_refs(obj)
+        return replace_refs(obj, self._process_refs(refs))
+
+    def get_results(self, obj):
+        refs = collect_refs(obj)
+        results = {ref: entry.result for ref, entry in self._process_refs(refs).items()}
         return replace_refs(obj, results)
 
     def __enter__(self):

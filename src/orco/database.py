@@ -76,10 +76,10 @@ class Database:
         self.metadata = metadata
         self.engine = engine
 
-    def read_entry(self, ref) -> Entry:
+    def read_entry(self, ref) -> Entry | None:
         c = self.entries.c
         with self.engine.connect() as conn:
-            select = sa.select(c.id, c.result, c.finished_date)
+            select = sa.select(c.id, c.result)
             if ref.entry_id is None:
                 select = (
                     select.where(c.name == ref.name)
@@ -91,7 +91,7 @@ class Database:
                 select = select.where(c.id == ref.entry_id)
             r = conn.execute(select).one_or_none()
             if r is not None:
-                return Entry(entry_id=r[0], ref=ref, result=r[1], finished_date=r[2])
+                return Entry(entry_id=r[0], ref=ref, result=r[1])
             else:
                 return None
 
@@ -155,10 +155,6 @@ class Database:
 
     def get_or_announce_entry(self, ref) -> (AnnounceResult, EntryId, Any):
         c = self.entries.c
-        config = {
-            key: value for key, value in ref.config.items() if not key.startswith("__")
-        }
-
         with self.engine.connect() as conn:
             try:
                 stmt = (
@@ -166,7 +162,7 @@ class Database:
                     .values(
                         name=ref.name,
                         version=ref.version,
-                        config=config,
+                        config=ref.config,
                         config_key=ref.config_key,
                         replica=ref.replica,
                     )

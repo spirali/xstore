@@ -121,7 +121,7 @@ def test_compute_ignored_args(runtime):
         assert my_fn(10, 1, 20) == 31
         assert my_fn(10, 2, 20) == 31
         assert runtime.read_entries(
-            my_fn.ref(10, 1, 20, version=101, replica=2)
+            my_fn.ref(10, 1, 20)
         ).ref.config == {
             "a": 10,
             "b": 20,
